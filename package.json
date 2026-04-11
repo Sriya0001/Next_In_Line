@@ -1,0 +1,14 @@
+{
+  "name": "next-in-line",
+  "version": "1.0.0",
+  "description": "Lightweight self-managing hiring pipeline for small engineering teams",
+  "private": true,
+  "scripts": {
+    "dev": "concurrently \"npm run dev --prefix server\" \"npm run dev --prefix client\"",
+    "install:all": "npm install && npm install --prefix server && npm install --prefix client",
+    "test": "npm test --prefix server"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}
