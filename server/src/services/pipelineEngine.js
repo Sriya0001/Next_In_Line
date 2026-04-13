@@ -77,6 +77,14 @@ async function promoteNext(jobId) {
     if (!jobRes.rows.length) throw new Error(`Job ${jobId} not found`);
     const job = jobRes.rows[0];
 
+    // Do not promote if the job is paused or closed.
+    // A paused job halts the cascade — no new applicants should be activated
+    // until the company explicitly re-opens it.
+    if (job.status !== 'open') {
+      await client.query('COMMIT');
+      return null;
+    }
+
     const activeCount = await getActiveCount(client, jobId);
     if (activeCount >= job.active_capacity) {
       // No slot available — nothing to promote
