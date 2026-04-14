@@ -80,6 +80,13 @@ export default function Landing() {
       <section style={{ position: 'relative', textAlign: 'center', padding: '64px 24px 48px' }}>
         <div style={GRADIENT_STYLE} aria-hidden="true" />
         <div style={{ position: 'relative' }}>
+          <div style={{
+            display: 'inline-flex', alignItems: 'center', gap: 8,
+            padding: '6px 16px', borderRadius: 100,
+            background: 'rgba(108,99,255,0.12)', border: '1px solid rgba(108,99,255,0.25)',
+            fontSize: '0.8rem', fontWeight: 600, color: 'var(--color-accent)',
+            marginBottom: 24, letterSpacing: '0.04em',
+          }}>
             Self-managing hiring pipeline
           </div>
           <h1 className="page-title" style={{ fontSize: '3rem', maxWidth: 640, margin: '0 auto 16px' }}>
@@ -119,6 +126,7 @@ export default function Landing() {
               background: 'var(--color-surface-2)',
               border: '1px solid var(--color-border)',
               fontSize: '0.8rem', color: 'var(--text-secondary)',
+            }}>
               {f.text}
             </div>
           ))}
