@@ -71,7 +71,13 @@ async function seed() {
       await client.query(`
         INSERT INTO pipeline_events 
           (application_id, job_id, applicant_id, event_type, from_status, to_status)
-        VALUES ($1, $2, $3, 'activated', 'waitlisted', 'acknowledged')
+        VALUES ($1, $2, $3, 'activated', NULL, 'active')
+      `, [appRes.rows[0].id, jobId, applicantIds[i]]);
+
+      await client.query(`
+        INSERT INTO pipeline_events 
+          (application_id, job_id, applicant_id, event_type, from_status, to_status)
+        VALUES ($1, $2, $3, 'acknowledged', 'active', 'acknowledged')
       `, [appRes.rows[0].id, jobId, applicantIds[i]]);
     }
 
