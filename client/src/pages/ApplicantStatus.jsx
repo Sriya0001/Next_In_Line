@@ -29,15 +29,17 @@ export default function ApplicantStatus() {
   const { applicationId } = useParams();
   const addToast = useToast();
 
+  const POLL_INTERVAL = 30000; // 30s — deliberate choice for minimal architecture
+
   const { data: app, loading, error, lastUpdated, refresh } = usePolling(
     () => applicationsApi.get(applicationId),
-    30000,
+    POLL_INTERVAL,
     [applicationId]
   );
 
   const { data: events, refresh: refreshEvents } = usePolling(
     () => applicationsApi.getEvents(applicationId),
-    30000,
+    POLL_INTERVAL,
     [applicationId]
   );
 
@@ -124,12 +126,20 @@ export default function ApplicantStatus() {
             <Row label="Applied" value={new Date(app.applied_at).toLocaleString()} />
             <Row label="Application ID" value={<span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.8rem' }}>{app.id}</span>} />
             {isWaitlisted && (
-              <>
-                <Row label="Queue Position" value={<strong style={{ color: 'var(--color-waitlist)' }}>#{app.waitlist_position}</strong>} />
+              <div style={{ 
+                marginTop: 8, padding: 16, borderRadius: 'var(--radius-md)', 
+                background: 'rgba(108, 99, 255, 0.05)', border: '1px solid rgba(108, 99, 255, 0.1)' 
+              }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Position in Queue</span>
+                  <span style={{ fontSize: '1.2rem', fontWeight: 800, color: 'var(--color-accent)' }}>#{app.waitlist_position}</span>
+                </div>
                 {app.ahead_count !== null && (
-                  <Row label="Ahead of you" value={`${app.ahead_count} applicant${app.ahead_count !== 1 ? 's' : ''}`} />
+                  <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textAlign: 'right', marginTop: 4 }}>
+                    {app.ahead_count} applicant{app.ahead_count !== 1 ? 's' : ''} ahead
+                  </div>
                 )}
-              </>
+              </div>
             )}
             {app.decay_penalty_count > 0 && (
               <Row label="Decay Penalties" value={<span style={{ color: 'var(--color-decay)' }}>🔥 ×{app.decay_penalty_count}</span>} />

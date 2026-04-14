@@ -8,7 +8,7 @@ import CountdownTimer from '../components/CountdownTimer';
 import EventFeed from '../components/EventFeed';
 import Avatar from '../components/Avatar';
 
-const POLL_INTERVAL = 30000; // 30 seconds — deliberate polling strategy
+const POLL_INTERVAL = 30000; // 30s — deliberate choice for minimal architecture
 
 export default function Dashboard() {
   const { jobId } = useParams();
@@ -227,6 +227,9 @@ export default function Dashboard() {
                         </span>
                       )}
                       <StatusBadge status={app.status} />
+                      {app.status === 'acknowledged' && (
+                        <span style={{ fontSize: '1.2rem', title: 'Confirmed spot' }}>✅</span>
+                      )}
                       {app.status === 'active' && app.acknowledge_deadline && (
                         <CountdownTimer deadlineISO={app.acknowledge_deadline} />
                       )}
