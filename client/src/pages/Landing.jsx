@@ -80,14 +80,7 @@ export default function Landing() {
       <section style={{ position: 'relative', textAlign: 'center', padding: '64px 24px 48px' }}>
         <div style={GRADIENT_STYLE} aria-hidden="true" />
         <div style={{ position: 'relative' }}>
-          <div style={{
-            display: 'inline-flex', alignItems: 'center', gap: 8,
-            padding: '6px 16px', borderRadius: 100,
-            background: 'rgba(108,99,255,0.12)', border: '1px solid rgba(108,99,255,0.25)',
-            fontSize: '0.8rem', fontWeight: 600, color: 'var(--color-accent)',
-            marginBottom: 24, letterSpacing: '0.04em',
-          }}>
-            ⚡ Self-managing hiring pipeline
+            Self-managing hiring pipeline
           </div>
           <h1 className="page-title" style={{ fontSize: '3rem', maxWidth: 640, margin: '0 auto 16px' }}>
             Hiring that moves<br />
@@ -115,20 +108,18 @@ export default function Landing() {
           display: 'flex', flexWrap: 'wrap', gap: 10, justifyContent: 'center',
         }}>
           {[
-            { icon: '🎯', text: 'Active capacity control' },
-            { icon: '⚡', text: 'Auto-cascade promotions' },
-            { icon: '⏰', text: 'Inactivity decay & re-queue' },
-            { icon: '🔒', text: 'Concurrency-safe slots' },
-            { icon: '📋', text: 'Full audit trail' },
+            { text: 'Active capacity control' },
+            { text: 'Auto-cascade promotions' },
+            { text: 'Inactivity decay & re-queue' },
+            { text: 'Concurrency-safe slots' },
+            { text: 'Full audit trail' },
           ].map(f => (
             <div key={f.text} style={{
               padding: '8px 16px', borderRadius: 100,
               background: 'var(--color-surface-2)',
               border: '1px solid var(--color-border)',
               fontSize: '0.8rem', color: 'var(--text-secondary)',
-              display: 'flex', alignItems: 'center', gap: 6,
-            }}>
-              <span>{f.icon}</span> {f.text}
+              {f.text}
             </div>
           ))}
         </div>
@@ -155,8 +146,7 @@ export default function Landing() {
 
         {!loading && (!jobs || jobs.length === 0) && (
           <div className="empty-state">
-            <div className="empty-state-icon">🗂️</div>
-            <div className="empty-state-text">No job openings yet. Create one above!</div>
+            <div className="empty-state-text">No job openings yet. Create one above to get started.</div>
           </div>
         )}
 
@@ -307,11 +297,8 @@ export default function Landing() {
             {applyResult ? (
               /* Success state */
               <div style={{ textAlign: 'center' }}>
-                <div style={{ fontSize: '3rem', marginBottom: 16 }}>
-                  {applyResult.application.status === 'active' ? '🎉' : '📋'}
-                </div>
                 <h2 className="modal-title" id="modal-apply-title">
-                  {applyResult.application.status === 'active' ? 'You\'re Active!' : 'You\'re Waitlisted'}
+                  {applyResult.application.status === 'active' ? 'Application Activated' : 'Added to Waitlist'}
                 </h2>
                 <p style={{ color: 'var(--text-secondary)', marginBottom: 24 }}>
                   {applyResult.message}
