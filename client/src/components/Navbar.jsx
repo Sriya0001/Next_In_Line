@@ -7,7 +7,6 @@ export default function Navbar() {
     <nav className="navbar" role="navigation" aria-label="Main navigation">
       <div className="navbar-inner">
         <Link to="/" className="navbar-brand" id="nav-brand">
-          <div className="brand-icon" aria-hidden="true">⚡</div>
           <span>Next In Line</span>
         </Link>
         <div className="navbar-links">
@@ -18,15 +17,6 @@ export default function Navbar() {
           >
             Home
           </Link>
-          <a
-            href="https://github.com/sriya/next-in-line"
-            className="navbar-link"
-            target="_blank"
-            rel="noopener noreferrer"
-            id="nav-link-github"
-          >
-            GitHub
-          </a>
         </div>
       </div>
     </nav>
