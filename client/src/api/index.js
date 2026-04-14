@@ -31,6 +31,7 @@ export const applicationsApi = {
   acknowledge: (id) => api.post(`/applications/${id}/acknowledge`),
   exit: (id, reason) => api.patch(`/applications/${id}/exit`, { reason }),
   getEvents: (id) => api.get(`/applications/${id}/events`),
+  lookup: (email) => api.post('/applications/lookup', { email }),
 };
 
 // ─── Pipeline ─────────────────────────────────────────────────

@@ -149,4 +149,28 @@ async function getApplicationEvents(req, res) {
   return res.json({ data: result.rows });
 }
 
-module.exports = { apply, getApplication, acknowledge, exit, getApplicationEvents };
+/**
+ * POST /api/applications/lookup
+ * Find all applications for an email address.
+ */
+async function lookupApplications(req, res) {
+  const { email } = req.body;
+
+  if (!email || typeof email !== 'string' || !email.trim()) {
+    return res.status(400).json({ error: { message: 'email is required' } });
+  }
+
+  const result = await query(
+    `SELECT a.id, a.status, a.applied_at, j.title AS job_title, j.company_name
+     FROM applications a
+     JOIN applicants ap ON ap.id = a.applicant_id
+     JOIN jobs j ON j.id = a.job_id
+     WHERE ap.email = $1
+     ORDER BY a.applied_at DESC`,
+    [email.trim().toLowerCase()]
+  );
+
+  return res.json({ data: result.rows });
+}
+
+module.exports = { apply, getApplication, acknowledge, exit, getApplicationEvents, lookupApplications };
