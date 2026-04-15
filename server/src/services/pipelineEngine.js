@@ -71,7 +71,7 @@ async function promoteNext(jobId) {
 
     // Lock the job row to prevent concurrent promotions
     const jobRes = await client.query(
-      'SELECT id, active_capacity, decay_window_hours FROM jobs WHERE id = $1 FOR UPDATE',
+      'SELECT id, active_capacity, decay_window_hours, status FROM jobs WHERE id = $1 FOR UPDATE',
       [jobId]
     );
     if (!jobRes.rows.length) throw new Error(`Job ${jobId} not found`);
