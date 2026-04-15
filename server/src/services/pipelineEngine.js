@@ -271,6 +271,11 @@ async function acknowledgePromotion(applicationId) {
     if (!res.rows.length) throw Object.assign(new Error('Application not found'), { statusCode: 404 });
     const app = res.rows[0];
 
+    if (app.status === 'acknowledged') {
+      await client.query('COMMIT');
+      return { ...app, status: 'acknowledged' }; // Idempotent success
+    }
+
     if (app.status !== 'active') {
       throw Object.assign(
         new Error(`Cannot acknowledge: application is '${app.status}', not 'active'`),
