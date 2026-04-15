@@ -79,9 +79,9 @@ CREATE TABLE IF NOT EXISTS applications (
 -- ─── Audit Log ────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS pipeline_events (
   id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  application_id  UUID NOT NULL REFERENCES applications(id) ON DELETE CASCADE,
+  application_id  UUID REFERENCES applications(id) ON DELETE CASCADE, -- NULL for job-level events
   job_id          UUID NOT NULL REFERENCES jobs(id) ON DELETE CASCADE,
-  applicant_id    UUID NOT NULL REFERENCES applicants(id) ON DELETE CASCADE,
+  applicant_id    UUID REFERENCES applicants(id) ON DELETE CASCADE,    -- NULL for system events
   event_type      event_type NOT NULL,
   from_status     TEXT,
   to_status       TEXT,
@@ -90,6 +90,10 @@ CREATE TABLE IF NOT EXISTS pipeline_events (
   metadata        JSONB DEFAULT '{}',
   created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+-- Ensure existing columns are nullable if table already exists
+ALTER TABLE pipeline_events ALTER COLUMN application_id DROP NOT NULL;
+ALTER TABLE pipeline_events ALTER COLUMN applicant_id DROP NOT NULL;
 
 -- ─── Indexes ──────────────────────────────────────────────────
 CREATE INDEX IF NOT EXISTS idx_applications_job_id ON applications(job_id);
@@ -137,4 +141,7 @@ async function migrate() {
   }
 }
 
-migrate().catch(() => process.exit(1));
+migrate().catch((err) => {
+  console.error('❌ Top-level migration error:', err);
+  process.exit(1);
+});

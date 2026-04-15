@@ -1,5 +1,6 @@
 const { query } = require('../config/db');
-const { updateCapacity, applyToJob } = require('../services/pipelineEngine');
+const { updateCapacity, applyToJob, logEvent } = require('../services/pipelineEngine');
+const { getClient } = require('../config/db');
 
 /**
  * POST /api/jobs
@@ -118,16 +119,38 @@ async function updateJobStatus(req, res) {
     return res.status(400).json({ error: { message: "status must be 'open', 'paused', or 'closed'" } });
   }
 
-  const result = await query(
-    'UPDATE jobs SET status = $1 WHERE id = $2 RETURNING *',
-    [status, id]
-  );
+  const client = await getClient();
+  try {
+    await client.query('BEGIN');
 
-  if (!result.rows.length) {
-    return res.status(404).json({ error: { message: 'Job not found' } });
+    const checkRes = await client.query('SELECT status FROM jobs WHERE id = $1 FOR UPDATE', [id]);
+    if (!checkRes.rows.length) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: { message: 'Job not found' } });
+    }
+    const oldStatus = checkRes.rows[0].status;
+
+    const result = await client.query(
+      'UPDATE jobs SET status = $1 WHERE id = $2 RETURNING *',
+      [status, id]
+    );
+
+    await logEvent(client, {
+      jobId: id,
+      eventType: 'job_status_changed',
+      fromStatus: oldStatus,
+      toStatus: status,
+      metadata: { initiated_by: 'admin' },
+    });
+
+    await client.query('COMMIT');
+    return res.json({ data: result.rows[0] });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    throw err;
+  } finally {
+    client.release();
   }
-
-  return res.json({ data: result.rows[0] });
 }
 
 module.exports = { createJob, listJobs, getJob, changeCapacity, updateJobStatus };
