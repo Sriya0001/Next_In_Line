@@ -170,14 +170,19 @@ export default function ApplicantStatus() {
 
         {/* Actions */}
         {!isExited && (
-          <div style={{ display: 'flex', gap: 10, marginBottom: 20, flexWrap: 'wrap' }}>
+          <div style={{ 
+            display: 'flex', 
+            gap: 12, 
+            marginBottom: 24, 
+            flexDirection: isActive ? 'column' : 'row' 
+          }}>
             {isActive && (
               <button
-                className="btn btn-success"
+                className="btn btn-success btn-lg"
                 id="btn-acknowledge"
                 onClick={handleAcknowledge}
                 disabled={ackLoading}
-                style={{ flex: 1 }}
+                style={{ flex: 1, width: '100%', justifyContent: 'center' }}
               >
                 {ackLoading
                   ? <><span className="spinner" style={{ width: 14, height: 14 }} /> Confirming…</>
@@ -185,13 +190,13 @@ export default function ApplicantStatus() {
               </button>
             )}
             <button
-              className="btn btn-secondary"
+              className={`btn btn-secondary ${isActive ? '' : 'btn-lg'}`}
               id="btn-withdraw"
               onClick={handleWithdraw}
               disabled={ackLoading}
-              style={{ flex: isActive ? 0 : 1 }}
+              style={{ flex: 1, justifyContent: 'center' }}
             >
-              Withdraw
+              Withdraw Application
             </button>
           </div>
         )}
