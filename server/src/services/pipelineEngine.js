@@ -489,12 +489,11 @@ async function updateCapacity(jobId, newCapacity) {
       [newCapacity, jobId]
     );
 
-    await client.query(
-      `INSERT INTO pipeline_events (application_id, job_id, applicant_id, event_type, metadata)
-       SELECT id, job_id, applicant_id, 'capacity_changed', $1
-       FROM applications WHERE job_id = $2 LIMIT 1`,
-      [JSON.stringify({ old_capacity: oldCapacity, new_capacity: newCapacity }), jobId]
-    );
+    await logEvent(client, {
+      jobId,
+      eventType: 'capacity_changed',
+      metadata: { old_capacity: oldCapacity, new_capacity: newCapacity },
+    });
 
     const activeCount = await getActiveCount(client, jobId);
 
@@ -542,10 +541,13 @@ async function updateCapacity(jobId, newCapacity) {
 
     // If capacity increased, promote to fill new slots
     if (newCapacity > oldCapacity) {
-      const slotsToFill = newCapacity - Math.min(activeCount, newCapacity);
-      for (let i = 0; i < slotsToFill; i++) {
+      // Get fresh count after commit to ensure we promote the right number
+      const currentActive = await getActiveCount(client, jobId);
+      const toPromote = Math.max(0, newCapacity - currentActive);
+      
+      for (let i = 0; i < toPromote; i++) {
         const promoted = await promoteNext(jobId);
-        if (!promoted) break; // Waitlist exhausted
+        if (!promoted) break; 
       }
     }
 
