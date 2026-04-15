@@ -38,7 +38,7 @@ async function getPipelineSnapshot(req, res) {
          COUNT(*) FILTER (WHERE status = 'waitlisted') AS waitlist_count,
          COUNT(*) FILTER (WHERE status = 'rejected') AS rejected_count,
          COUNT(*) FILTER (WHERE status = 'withdrawn') AS withdrawn_count,
-         COUNT(*) FILTER (WHERE status = 'decayed') AS decayed_count,
+         COUNT(*) FILTER (WHERE decay_penalty_count > 0) AS decayed_count,
          COUNT(*) AS total_count,
          SUM(decay_penalty_count) AS total_decays
        FROM applications WHERE job_id = $1`,
