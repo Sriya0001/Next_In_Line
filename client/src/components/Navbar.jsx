@@ -33,7 +33,7 @@ export default function Navbar() {
           className={`btn ${isAdminPath ? 'btn-primary' : 'btn-secondary'} btn-sm`}
           id="nav-admin-portal"
         >
-          {isAdminPath ? 'Dashboard Active' : 'Recruiter Portal'}
+          {isAdminPath ? 'Admin Dashboard' : 'Recruiter Portal'}
         </Link>
       </div>
     </nav>

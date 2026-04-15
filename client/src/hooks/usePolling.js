@@ -13,6 +13,7 @@ export function usePolling(fetchFn, interval = 30000, deps = []) {
   const intervalRef = useRef(null);
 
   const fetch = useCallback(async () => {
+    setLoading(true);
     try {
       const result = await fetchFn();
       setData(result.data ?? result);

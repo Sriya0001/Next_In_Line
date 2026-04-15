@@ -138,7 +138,14 @@ export default function PipelineView() {
               ) : job.status === 'paused' ? (
                 <button className="btn btn-success btn-sm" onClick={() => handleStatusChange('open')} id="btn-open">▶ Open</button>
               ) : null}
-              <button className="btn btn-secondary btn-sm" onClick={() => { refresh(); refreshEvents(); }} id="btn-refresh">↻</button>
+              <button 
+                className={`btn btn-secondary btn-sm ${loading ? 'spinning' : ''}`} 
+                onClick={() => { refresh(); refreshEvents(); }} 
+                id="btn-refresh"
+                disabled={loading}
+              >
+                ↻
+              </button>
             </div>
           </div>
 
@@ -220,9 +227,7 @@ export default function PipelineView() {
                           </span>
                         )}
                         <StatusBadge status={app.status} />
-                        {app.status === 'acknowledged' && (
-                          <span style={{ fontSize: '1.2rem', title: 'Confirmed spot' }}>✅</span>
-                        )}
+                        {app.status === 'acknowledged' && null}
                         {app.status === 'active' && app.acknowledge_deadline && (
                           <CountdownTimer deadlineISO={app.acknowledge_deadline} />
                         )}

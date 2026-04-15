@@ -62,7 +62,13 @@ export default function AdminPortal() {
             <p className="page-subtitle">Monitor and manage all active hiring pipelines.</p>
           </div>
           <div style={{ display: 'flex', gap: 12 }}>
-            <button className="btn btn-secondary" onClick={refresh}>↻ Refresh</button>
+            <button 
+              className={`btn btn-secondary ${loading ? 'spinning' : ''}`} 
+              onClick={refresh}
+              disabled={loading}
+            >
+              ↻ Refresh
+            </button>
             <button className="btn btn-primary" onClick={() => setShowCreate(true)}>+ Create Opening</button>
           </div>
         </header>
