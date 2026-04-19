@@ -1,4 +1,4 @@
-const { getClient } = require('../config/db');
+const { query, withTransaction } = require('../config/db');
 
 // ─── Constants ────────────────────────────────────────────────
 const ACTIVE_STATUSES = ['active', 'acknowledged'];
@@ -60,91 +60,73 @@ async function normaliseWaitlist(client, jobId) {
 }
 
 /**
- * Promotes the next waitlisted applicant for a job.
- * Returns the promoted application row, or null if waitlist is empty.
- * This function acquires its own transaction — do NOT call inside another txn.
+ * Internal helper for promoting the next waitlisted applicant.
+ * Must be called inside a transaction (receives client).
+ */
+async function promoteNextInternal(client, jobId) {
+  // Lock the job row to prevent concurrent promotions
+  const jobRes = await client.query(
+    'SELECT id, active_capacity, decay_window_hours, status FROM jobs WHERE id = $1 FOR UPDATE',
+    [jobId]
+  );
+  if (!jobRes.rows.length) throw new Error(`Job ${jobId} not found`);
+  const job = jobRes.rows[0];
+
+  if (job.status !== 'open') return null;
+
+  const activeCount = await getActiveCount(client, jobId);
+  if (activeCount >= job.active_capacity) return null;
+
+  const nextRes = await client.query(
+    `SELECT a.*, ap.name, ap.email 
+     FROM applications a
+     JOIN applicants ap ON ap.id = a.applicant_id
+     WHERE a.job_id = $1 AND a.status = 'waitlisted'
+     ORDER BY a.waitlist_position ASC, a.applied_at ASC
+     LIMIT 1
+     FOR UPDATE OF a`,
+    [jobId]
+  );
+
+  if (!nextRes.rows.length) return null;
+
+  const app = nextRes.rows[0];
+  const deadlineInterval = `${job.decay_window_hours} hours`;
+
+  await client.query(
+    `UPDATE applications
+     SET status = 'active',
+         waitlist_position = NULL,
+         promoted_at = NOW(),
+         acknowledge_deadline = NOW() + $1::interval
+     WHERE id = $2`,
+    [deadlineInterval, app.id]
+  );
+
+  await logEvent(client, {
+    applicationId: app.id,
+    jobId,
+    applicantId: app.applicant_id,
+    eventType: 'promoted',
+    fromStatus: 'waitlisted',
+    toStatus: 'active',
+    fromPosition: app.waitlist_position,
+    toPosition: null,
+    metadata: { acknowledge_deadline: new Date(Date.now() + job.decay_window_hours * 3600000).toISOString() },
+  });
+
+  await normaliseWaitlist(client, jobId);
+  return { ...app, status: 'active', waitlist_position: null };
+}
+
+/**
+ * Public method for promoting the next applicant.
+ * Acquires a new transaction with automatic retries.
  */
 async function promoteNext(jobId) {
-  const client = await getClient();
-  try {
-    await client.query('BEGIN');
-
-    // Lock the job row to prevent concurrent promotions
-    const jobRes = await client.query(
-      'SELECT id, active_capacity, decay_window_hours, status FROM jobs WHERE id = $1 FOR UPDATE',
-      [jobId]
-    );
-    if (!jobRes.rows.length) throw new Error(`Job ${jobId} not found`);
-    const job = jobRes.rows[0];
-
-    // Do not promote if the job is paused or closed.
-    // A paused job halts the cascade — no new applicants should be activated
-    // until the company explicitly re-opens it.
-    if (job.status !== 'open') {
-      await client.query('COMMIT');
-      return null;
-    }
-
-    const activeCount = await getActiveCount(client, jobId);
-    if (activeCount >= job.active_capacity) {
-      // No slot available — nothing to promote
-      await client.query('COMMIT');
-      return null;
-    }
-
-    // Find next in waitlist (lowest position wins; ties broken by applied_at)
-    const nextRes = await client.query(
-      `SELECT a.*, ap.name, ap.email 
-       FROM applications a
-       JOIN applicants ap ON ap.id = a.applicant_id
-       WHERE a.job_id = $1 AND a.status = 'waitlisted'
-       ORDER BY a.waitlist_position ASC, a.applied_at ASC
-       LIMIT 1
-       FOR UPDATE OF a`,
-      [jobId]
-    );
-
-    if (!nextRes.rows.length) {
-      await client.query('COMMIT');
-      return null;
-    }
-
-    const app = nextRes.rows[0];
-    const deadlineInterval = `${job.decay_window_hours} hours`;
-
-    await client.query(
-      `UPDATE applications
-       SET status = 'active',
-           waitlist_position = NULL,
-           promoted_at = NOW(),
-           acknowledge_deadline = NOW() + $1::interval
-       WHERE id = $2`,
-      [deadlineInterval, app.id]
-    );
-
-    await logEvent(client, {
-      applicationId: app.id,
-      jobId,
-      applicantId: app.applicant_id,
-      eventType: 'promoted',
-      fromStatus: 'waitlisted',
-      toStatus: 'active',
-      fromPosition: app.waitlist_position,
-      toPosition: null,
-      metadata: { acknowledge_deadline: new Date(Date.now() + job.decay_window_hours * 3600000).toISOString() },
-    });
-
-    // Close waitlist gaps
-    await normaliseWaitlist(client, jobId);
-
-    await client.query('COMMIT');
-    return { ...app, status: 'active', waitlist_position: null };
-  } catch (err) {
-    await client.query('ROLLBACK');
-    throw err;
-  } finally {
-    client.release();
-  }
+  return withTransaction(async (client) => {
+    return promoteNextInternal(client, jobId);
+  });
 }
 
 /**
@@ -159,10 +141,7 @@ async function promoteNext(jobId) {
  * Returns the created application.
  */
 async function applyToJob({ jobId, applicantId }) {
-  const client = await getClient();
-  try {
-    await client.query('BEGIN TRANSACTION ISOLATION LEVEL SERIALIZABLE');
-
+  return withTransaction(async (client) => {
     // Lock job row — this serialises concurrent apply requests
     const jobRes = await client.query(
       'SELECT id, active_capacity, decay_window_hours, status FROM jobs WHERE id = $1 FOR UPDATE',
@@ -184,7 +163,6 @@ async function applyToJob({ jobId, applicantId }) {
 
     let insertRes;
     if (isActive) {
-      // Slot available — go straight to active
       insertRes = await client.query(
         `INSERT INTO applications (job_id, applicant_id, status, waitlist_position, promoted_at, acknowledge_deadline)
          VALUES ($1, $2, 'active', NULL, NOW(), NOW() + $3::interval)
@@ -192,7 +170,6 @@ async function applyToJob({ jobId, applicantId }) {
         [jobId, applicantId, `${job.decay_window_hours} hours`]
       );
     } else {
-      // No slot — waitlisted at end of queue
       const posRes = await client.query(
         'SELECT COALESCE(MAX(waitlist_position), 0) + 1 AS next_pos FROM applications WHERE job_id = $1 AND status = \'waitlisted\'',
         [jobId]
@@ -209,7 +186,6 @@ async function applyToJob({ jobId, applicantId }) {
 
     const newApp = insertRes.rows[0];
 
-    // Log the apply event
     await logEvent(client, {
       applicationId: newApp.id,
       jobId,
@@ -245,14 +221,8 @@ async function applyToJob({ jobId, applicantId }) {
       });
     }
 
-    await client.query('COMMIT');
     return newApp;
-  } catch (err) {
-    await client.query('ROLLBACK');
-    throw err;
-  } finally {
-    client.release();
-  }
+  });
 }
 
 /**
@@ -260,10 +230,7 @@ async function applyToJob({ jobId, applicantId }) {
  * Converts 'active' → 'acknowledged', confirming the applicant is responsive.
  */
 async function acknowledgePromotion(applicationId) {
-  const client = await getClient();
-  try {
-    await client.query('BEGIN');
-
+  return withTransaction(async (client) => {
     const res = await client.query(
       'SELECT * FROM applications WHERE id = $1 FOR UPDATE',
       [applicationId]
@@ -271,10 +238,7 @@ async function acknowledgePromotion(applicationId) {
     if (!res.rows.length) throw Object.assign(new Error('Application not found'), { statusCode: 404 });
     const app = res.rows[0];
 
-    if (app.status === 'acknowledged') {
-      await client.query('COMMIT');
-      return { ...app, status: 'acknowledged' }; // Idempotent success
-    }
+    if (app.status === 'acknowledged') return { ...app, status: 'acknowledged' };
 
     if (app.status !== 'active') {
       throw Object.assign(
@@ -298,14 +262,8 @@ async function acknowledgePromotion(applicationId) {
       metadata: { response_time_ms: Date.now() - new Date(app.promoted_at).getTime() },
     });
 
-    await client.query('COMMIT');
     return { ...app, status: 'acknowledged' };
-  } catch (err) {
-    await client.query('ROLLBACK');
-    throw err;
-  } finally {
-    client.release();
-  }
+  });
 }
 
 /**
@@ -317,10 +275,7 @@ async function exitPipeline(applicationId, exitType) {
     throw Object.assign(new Error("exitType must be 'rejected' or 'withdrawn'"), { statusCode: 400 });
   }
 
-  const client = await getClient();
-  try {
-    await client.query('BEGIN');
-
+  return withTransaction(async (client) => {
     const res = await client.query(
       'SELECT * FROM applications WHERE id = $1 FOR UPDATE',
       [applicationId]
@@ -346,20 +301,13 @@ async function exitPipeline(applicationId, exitType) {
       metadata: { initiated_by: 'company' },
     });
 
-    await client.query('COMMIT');
-
-    // If they held an active slot, cascade promotion
+    // If they held an active slot, cascade promotion inside the same transaction
     if (wasActive) {
-      await promoteNext(app.job_id);
+      await promoteNextInternal(client, app.job_id);
     }
 
     return { ...app, status: exitType };
-  } catch (err) {
-    await client.query('ROLLBACK');
-    throw err;
-  } finally {
-    client.release();
-  }
+  });
 }
 
 /**
@@ -375,23 +323,16 @@ async function exitPipeline(applicationId, exitType) {
  *   - Repeat decayers accumulate penalty_count, surfaced in UI as a warning signal
  */
 async function decayApplication(applicationId) {
-  const client = await getClient();
-  try {
-    await client.query('BEGIN TRANSACTION ISOLATION LEVEL SERIALIZABLE');
-
+  return withTransaction(async (client) => {
     const res = await client.query(
       'SELECT a.*, j.active_capacity, j.decay_window_hours FROM applications a JOIN jobs j ON j.id = a.job_id WHERE a.id = $1 FOR UPDATE OF a',
       [applicationId]
     );
-    if (!res.rows.length) {
-      await client.query('COMMIT');
-      return null;
-    }
+    if (!res.rows.length) return null;
     const app = res.rows[0];
 
     // Guard: only decay if still 'active' and past deadline
     if (app.status !== 'active' || !app.acknowledge_deadline || new Date(app.acknowledge_deadline) > new Date()) {
-      await client.query('COMMIT');
       return null;
     }
 
@@ -457,18 +398,11 @@ async function decayApplication(applicationId) {
       metadata: { reason: 'inactivity_penalty' },
     });
 
-    await client.query('COMMIT');
-
-    // Trigger next promotion to fill the vacated slot
-    await promoteNext(app.job_id);
+    // Trigger next promotion inside the transaction
+    await promoteNextInternal(client, app.job_id);
 
     return { applicationId, newPosition: insertPosition };
-  } catch (err) {
-    await client.query('ROLLBACK');
-    throw err;
-  } finally {
-    client.release();
-  }
+  });
 }
 
 /**
@@ -477,10 +411,7 @@ async function decayApplication(applicationId) {
  * - Decrease: excess active applicants move to top of waitlist (position 0.x → renormalised)
  */
 async function updateCapacity(jobId, newCapacity) {
-  const client = await getClient();
-  try {
-    await client.query('BEGIN');
-
+  return withTransaction(async (client) => {
     const jobRes = await client.query(
       'SELECT * FROM jobs WHERE id = $1 FOR UPDATE',
       [jobId]
@@ -503,7 +434,6 @@ async function updateCapacity(jobId, newCapacity) {
     const activeCount = await getActiveCount(client, jobId);
 
     if (newCapacity < activeCount) {
-      // Overflow: demote last-added active applicants to front of waitlist
       const surplus = activeCount - newCapacity;
       const overflowRes = await client.query(
         `SELECT id, applicant_id, applied_at FROM applications
@@ -514,7 +444,6 @@ async function updateCapacity(jobId, newCapacity) {
         [jobId, ACTIVE_STATUSES, surplus]
       );
 
-      // Shift current waitlist down
       await client.query(
         `UPDATE applications SET waitlist_position = waitlist_position + $1
          WHERE job_id = $2 AND status = 'waitlisted'`,
@@ -542,27 +471,17 @@ async function updateCapacity(jobId, newCapacity) {
       }
     }
 
-    await client.query('COMMIT');
-
-    // If capacity increased, promote to fill new slots
     if (newCapacity > oldCapacity) {
-      // Get fresh count after commit to ensure we promote the right number
       const currentActive = await getActiveCount(client, jobId);
       const toPromote = Math.max(0, newCapacity - currentActive);
       
       for (let i = 0; i < toPromote; i++) {
-        const promoted = await promoteNext(jobId);
-        if (!promoted) break; 
+        await promoteNextInternal(client, jobId);
       }
     }
 
     return { jobId, oldCapacity, newCapacity };
-  } catch (err) {
-    await client.query('ROLLBACK');
-    throw err;
-  } finally {
-    client.release();
-  }
+  });
 }
 
 module.exports = {

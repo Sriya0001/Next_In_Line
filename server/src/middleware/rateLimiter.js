@@ -22,6 +22,7 @@ const applyLimiter = rateLimit({
   legacyHeaders: false,
   message: { error: 'Too many applications submitted. Please try again in an hour.' },
   keyGenerator: (req) => req.ip,
+  skip: () => process.env.STRESS_TEST === 'true',
 });
 
 module.exports = { apiLimiter, applyLimiter };

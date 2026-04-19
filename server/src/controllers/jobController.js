@@ -119,18 +119,14 @@ async function updateJobStatus(req, res) {
     return res.status(400).json({ error: { message: "status must be 'open', 'paused', or 'closed'" } });
   }
 
-  const client = await getClient();
-  try {
-    await client.query('BEGIN');
-
+  const result = await withTransaction(async (client) => {
     const checkRes = await client.query('SELECT status FROM jobs WHERE id = $1 FOR UPDATE', [id]);
     if (!checkRes.rows.length) {
-      await client.query('ROLLBACK');
-      return res.status(404).json({ error: { message: 'Job not found' } });
+      throw Object.assign(new Error('Job not found'), { statusCode: 404 });
     }
     const oldStatus = checkRes.rows[0].status;
 
-    const result = await client.query(
+    const updateRes = await client.query(
       'UPDATE jobs SET status = $1 WHERE id = $2 RETURNING *',
       [status, id]
     );
@@ -143,14 +139,10 @@ async function updateJobStatus(req, res) {
       metadata: { initiated_by: 'admin' },
     });
 
-    await client.query('COMMIT');
-    return res.json({ data: result.rows[0] });
-  } catch (err) {
-    await client.query('ROLLBACK');
-    throw err;
-  } finally {
-    client.release();
-  }
+    return updateRes.rows[0];
+  });
+
+  return res.json({ data: result });
 }
 
 module.exports = { createJob, listJobs, getJob, changeCapacity, updateJobStatus };
