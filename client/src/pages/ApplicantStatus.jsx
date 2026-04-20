@@ -168,6 +168,21 @@ export default function ApplicantStatus() {
           </div>
         )}
 
+        {/* Post-Pipeline Next Steps */}
+        {app.status === 'acknowledged' && (
+          <div className="card" style={{ marginBottom: 16, background: 'var(--color-surface-2)', border: '1px solid var(--color-active-soft)' }}>
+            <h3 className="section-title" style={{ color: 'var(--color-active)', marginBottom: 12 }}>🚀 What's Next?</h3>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10, fontSize: '0.9rem', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
+              <p>You have successfully cleared the Next In Line waitlist and secured your spot for <strong>{app.job_title}</strong>.</p>
+              <ul style={{ paddingLeft: 20, margin: 0 }}>
+                <li style={{ marginBottom: 6 }}><strong>Technical Review:</strong> The hiring manager now has your application at the top of their desk.</li>
+                <li style={{ marginBottom: 6 }}><strong>Direct Communication:</strong> You will no longer be competing with the queue. All further updates, including interview scheduling, will be sent directly to <strong>{app.email}</strong>.</li>
+                <li><strong>No Action Required:</strong> Take a deep breath. We will be in touch with you shortly!</li>
+              </ul>
+            </div>
+          </div>
+        )}
+
         {/* Actions */}
         {!isExited && (
           <div style={{ 

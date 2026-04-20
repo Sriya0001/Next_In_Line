@@ -1,4 +1,12 @@
 const { query, withTransaction } = require('../config/db');
+const {
+  notifyApplicationReceived,
+  notifyPromotion,
+  notifyAcknowledgementConfirmed,
+  notifyDecay,
+  notifyRejection,
+  notifyWithdrawal,
+} = require('./notificationService');
 
 // ─── Constants ────────────────────────────────────────────────
 const ACTIVE_STATUSES = ['active', 'acknowledged'];
@@ -92,6 +100,7 @@ async function promoteNextInternal(client, jobId) {
 
   const app = nextRes.rows[0];
   const deadlineInterval = `${job.decay_window_hours} hours`;
+  const deadlineISO = new Date(Date.now() + job.decay_window_hours * 3600000).toISOString();
 
   await client.query(
     `UPDATE applications
@@ -112,10 +121,23 @@ async function promoteNextInternal(client, jobId) {
     toStatus: 'active',
     fromPosition: app.waitlist_position,
     toPosition: null,
-    metadata: { acknowledge_deadline: new Date(Date.now() + job.decay_window_hours * 3600000).toISOString() },
+    metadata: { acknowledge_deadline: deadlineISO },
   });
 
   await normaliseWaitlist(client, jobId);
+
+  // Fire simulated promotion email (non-blocking, does not affect transaction)
+  const jobTitleRes = await client.query('SELECT title FROM jobs WHERE id = $1', [jobId]);
+  const jobTitle = jobTitleRes.rows[0]?.title || 'the position';
+  notifyPromotion({
+    applicantName: app.name,
+    applicantEmail: app.email,
+    jobTitle,
+    applicationId: app.id,
+    jobId,
+    deadlineISO,
+  }).catch(() => {});
+
   return { ...app, status: 'active', waitlist_position: null };
 }
 
@@ -221,6 +243,22 @@ async function applyToJob({ jobId, applicantId }) {
       });
     }
 
+    // Fire simulated application-received email
+    const jobTitleRes2 = await client.query('SELECT title FROM jobs WHERE id = $1', [jobId]);
+    const jobTitle2 = jobTitleRes2.rows[0]?.title || 'the position';
+    const applicantRes = await client.query('SELECT name, email FROM applicants WHERE id = $1', [applicantId]);
+    const applicant = applicantRes.rows[0];
+    if (applicant) {
+      notifyApplicationReceived({
+        applicantName: applicant.name,
+        applicantEmail: applicant.email,
+        jobTitle: jobTitle2,
+        applicationId: newApp.id,
+        jobId,
+        status: isActive ? 'active' : 'waitlisted',
+      }).catch(() => {});
+    }
+
     return newApp;
   });
 }
@@ -262,6 +300,23 @@ async function acknowledgePromotion(applicationId) {
       metadata: { response_time_ms: Date.now() - new Date(app.promoted_at).getTime() },
     });
 
+    // Fetch applicant + job details for notification
+    const [ackApplicantRes, ackJobRes] = await Promise.all([
+      client.query('SELECT name, email FROM applicants WHERE id = $1', [app.applicant_id]),
+      client.query('SELECT title FROM jobs WHERE id = $1', [app.job_id]),
+    ]);
+    const ackApplicant = ackApplicantRes.rows[0];
+    const ackJobTitle = ackJobRes.rows[0]?.title || 'the position';
+    if (ackApplicant) {
+      notifyAcknowledgementConfirmed({
+        applicantName: ackApplicant.name,
+        applicantEmail: ackApplicant.email,
+        jobTitle: ackJobTitle,
+        applicationId,
+        jobId: app.job_id,
+      }).catch(() => {});
+    }
+
     return { ...app, status: 'acknowledged' };
   });
 }
@@ -300,6 +355,33 @@ async function exitPipeline(applicationId, exitType) {
       fromPosition: app.waitlist_position,
       metadata: { initiated_by: 'company' },
     });
+
+    // Fetch applicant + job for notification
+    const [exitApplicantRes, exitJobRes] = await Promise.all([
+      client.query('SELECT name, email FROM applicants WHERE id = $1', [app.applicant_id]),
+      client.query('SELECT title FROM jobs WHERE id = $1', [app.job_id]),
+    ]);
+    const exitApplicant = exitApplicantRes.rows[0];
+    const exitJobTitle = exitJobRes.rows[0]?.title || 'the position';
+    if (exitApplicant) {
+      if (exitType === 'rejected') {
+        notifyRejection({
+          applicantName: exitApplicant.name,
+          applicantEmail: exitApplicant.email,
+          jobTitle: exitJobTitle,
+          applicationId,
+          jobId: app.job_id,
+        }).catch(() => {});
+      } else {
+        notifyWithdrawal({
+          applicantName: exitApplicant.name,
+          applicantEmail: exitApplicant.email,
+          jobTitle: exitJobTitle,
+          applicationId,
+          jobId: app.job_id,
+        }).catch(() => {});
+      }
+    }
 
     // If they held an active slot, cascade promotion inside the same transaction
     if (wasActive) {
@@ -397,6 +479,24 @@ async function decayApplication(applicationId) {
       toPosition: insertPosition,
       metadata: { reason: 'inactivity_penalty' },
     });
+
+    // Fire simulated decay notification email
+    const [decayApplicantRes, decayJobRes] = await Promise.all([
+      client.query('SELECT name, email FROM applicants WHERE id = $1', [app.applicant_id]),
+      client.query('SELECT title FROM jobs WHERE id = $1', [app.job_id]),
+    ]);
+    const decayApplicant = decayApplicantRes.rows[0];
+    const decayJobTitle = decayJobRes.rows[0]?.title || 'the position';
+    if (decayApplicant) {
+      notifyDecay({
+        applicantName: decayApplicant.name,
+        applicantEmail: decayApplicant.email,
+        jobTitle: decayJobTitle,
+        applicationId,
+        jobId: app.job_id,
+        penaltyCount: app.decay_penalty_count + 1,
+      }).catch(() => {});
+    }
 
     // Trigger next promotion inside the transaction
     await promoteNextInternal(client, app.job_id);

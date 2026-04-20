@@ -44,4 +44,6 @@ export const pipelineApi = {
 export const adminApi = {
   stats: () => api.get('/admin/stats'),
   triggerDecay: () => api.post('/admin/trigger-decay'),
+  getNotifications: (params = {}) => api.get('/admin/notifications', { params }),
+  getNotificationStats: () => api.get('/admin/notifications/stats'),
 };

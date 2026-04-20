@@ -106,6 +106,24 @@ CREATE INDEX IF NOT EXISTS idx_events_job_id ON pipeline_events(job_id);
 CREATE INDEX IF NOT EXISTS idx_events_application_id ON pipeline_events(application_id);
 CREATE INDEX IF NOT EXISTS idx_events_created_at ON pipeline_events(created_at DESC);
 
+-- ─── Notification Log (simulated email audit trail) ───────────
+CREATE TABLE IF NOT EXISTS notifications (
+  id                UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  applicant_name    TEXT NOT NULL,
+  applicant_email   TEXT NOT NULL,
+  notification_type TEXT NOT NULL,
+  subject           TEXT NOT NULL,
+  body              TEXT NOT NULL,
+  application_id    UUID,
+  job_id            UUID,
+  job_title         TEXT,
+  sent_at           TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_notifications_sent_at ON notifications(sent_at DESC);
+CREATE INDEX IF NOT EXISTS idx_notifications_job_id  ON notifications(job_id);
+CREATE INDEX IF NOT EXISTS idx_notifications_email   ON notifications(applicant_email);
+
 -- ─── Auto-update updated_at ───────────────────────────────────
 CREATE OR REPLACE FUNCTION update_updated_at_column()
 RETURNS TRIGGER AS $$

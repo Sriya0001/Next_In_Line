@@ -3,7 +3,7 @@
  */
 require('dotenv').config({ path: require('path').resolve(__dirname, '../../..', '.env') });
 
-const { pool } = require('../../src/config/db');
+const { pool } = require('../src/config/db');
 
 beforeAll(async () => {
   // Run migrations inline
@@ -32,12 +32,19 @@ beforeAll(async () => {
     );
     CREATE TABLE IF NOT EXISTS pipeline_events (
       id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-      application_id UUID NOT NULL REFERENCES applications(id) ON DELETE CASCADE,
+      application_id UUID REFERENCES applications(id) ON DELETE CASCADE,
       job_id UUID NOT NULL REFERENCES jobs(id) ON DELETE CASCADE,
-      applicant_id UUID NOT NULL REFERENCES applicants(id) ON DELETE CASCADE,
+      applicant_id UUID REFERENCES applicants(id) ON DELETE CASCADE,
       event_type event_type NOT NULL, from_status TEXT, to_status TEXT,
       from_position INT, to_position INT, metadata JSONB DEFAULT '{}',
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+    CREATE TABLE IF NOT EXISTS notifications (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      applicant_name TEXT NOT NULL, applicant_email TEXT NOT NULL,
+      notification_type TEXT NOT NULL, subject TEXT NOT NULL, body TEXT NOT NULL,
+      application_id UUID, job_id UUID, job_title TEXT,
+      sent_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
   `);
 }, 30000);

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { pipelineApi, applicationsApi, jobsApi, adminApi } from '../api';
 import { usePolling, useAsyncAction } from '../hooks/usePolling';
@@ -8,6 +8,7 @@ import CountdownTimer from '../components/CountdownTimer';
 import EventFeed from '../components/EventFeed';
 import Avatar from '../components/Avatar';
 import AdminSidebar from '../components/AdminSidebar';
+import NotificationLog from '../components/NotificationLog';
 
 const POLL_INTERVAL = 30000; // 30s — deliberate choice for minimal architecture
 
@@ -35,6 +36,23 @@ export default function PipelineView() {
     POLL_INTERVAL,
     [jobId]
   );
+
+  const previousActiveRef = useRef();
+  useEffect(() => {
+    if (pipeline && previousActiveRef.current) {
+      const prevActiveIds = new Set(previousActiveRef.current.map(a => a.id));
+      const newPromotions = pipeline.active.filter(a => !prevActiveIds.has(a.id));
+      
+      if (newPromotions.length > 0) {
+        newPromotions.forEach(p => {
+          addToast(`⚡ Auto-promoted: ${p.name} joined active review!`, 'info');
+        });
+      }
+    }
+    if (pipeline) {
+      previousActiveRef.current = pipeline.active;
+    }
+  }, [pipeline, addToast]);
 
   const { loading: actionLoading, execute } = useAsyncAction();
 
@@ -183,6 +201,7 @@ export default function PipelineView() {
               Waitlist{waitlist.length > 0 && ` (${waitlist.length})`}
             </button>
             <button className={`tab ${activeTab === 'events' ? 'active' : ''}`} id="tab-events" onClick={() => setActiveTab('events')}>Audit Log</button>
+            <button className={`tab ${activeTab === 'notifications' ? 'active' : ''}`} id="tab-notifications" onClick={() => setActiveTab('notifications')}>Notifications</button>
           </div>
 
           {/* ─── Pipeline Tab ────────────────────────── */}
@@ -330,6 +349,21 @@ export default function PipelineView() {
               </div>
               <div className="card">
                 <EventFeed events={eventsData || []} showApplicant={true} />
+              </div>
+            </div>
+          )}
+
+          {/* ─── Notifications Tab ─────────────────────── */}
+          {activeTab === 'notifications' && (
+            <div id="notifications-tab">
+              <div className="section-header">
+                <h2 className="section-title">Automated Communication Log</h2>
+                <div style={{ fontSize: '0.875rem', color: 'var(--text-muted)' }}>
+                  A live trail of all simulated emails sent to candidates.
+                </div>
+              </div>
+              <div className="card">
+                <NotificationLog jobId={jobId} />
               </div>
             </div>
           )}
