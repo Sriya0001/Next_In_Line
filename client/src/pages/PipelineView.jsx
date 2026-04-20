@@ -67,6 +67,38 @@ export default function PipelineView() {
     );
   }
 
+  function handleDownloadCSV() {
+    if (!eventsData || eventsData.length === 0) {
+      addToast('No audit events to download.', 'info');
+      return;
+    }
+
+    const headers = ['Timestamp', 'Event Type', 'Applicant Name', 'Applicant Email', 'From Status', 'To Status', 'Metadata'];
+    const rows = eventsData.map(e => [
+      new Date(e.created_at).toISOString(),
+      e.event_type,
+      e.applicant_name || 'System',
+      e.applicant_email || '-',
+      e.from_status || '-',
+      e.to_status || '-',
+      JSON.stringify(e.metadata) || '{}'
+    ]);
+
+    const csvContent = [
+      headers.join(','),
+      ...rows.map(row => row.map(v => `"${String(v).replace(/"/g, '""')}"`).join(','))
+    ].join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', `audit_log_${jobId}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  }
+
   async function handleCapacityChange(e) {
     e.preventDefault();
     const cap = parseInt(newCapacity, 10);
@@ -345,7 +377,10 @@ export default function PipelineView() {
             <div id="events-tab">
               <div className="section-header">
                 <h2 className="section-title">Audit Log</h2>
-                <button className="btn btn-secondary btn-sm" onClick={refreshEvents}>↻ Refresh</button>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <button className="btn btn-secondary btn-sm" onClick={handleDownloadCSV}>📥 Download (CSV)</button>
+                  <button className="btn btn-secondary btn-sm" onClick={refreshEvents}>↻ Refresh</button>
+                </div>
               </div>
               <div className="card">
                 <EventFeed events={eventsData || []} showApplicant={true} />
