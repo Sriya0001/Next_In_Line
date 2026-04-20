@@ -149,7 +149,7 @@ Why this approach:
 - **No external lock service needed** — PostgreSQL serialises it natively
 - **No phantom reads** — SERIALIZABLE isolation prevents the anomaly entirely
 - **No lost updates** — `FOR UPDATE` prevents concurrent writes to the same row
-- If a serialisation failure occurs (rare under real load with row-level locking), the client receives a 409 and can safely retry
+- **Auto-Retry Resiliency (`withTransaction`)** — If a serialization failure occurs between racing processes (Postgres error `40001`), the data wrapper automatically intercepts it, calculates an exponential backoff jitter, and safely retries the transaction. This guarantees the user is never inconvenienced by a DB locking clash.
 
 This is fully documented and testable (see `Concurrency: race condition for last slot` test in `__tests__/pipeline.test.js`).
 
@@ -192,8 +192,15 @@ If the applicant does not call `POST /applications/:id/acknowledge` before the d
 **Why `setInterval` and not a cron library?**
 - Zero extra dependencies — this is a core requirement of the challenge
 - Fully transparent — anyone can read `decayScheduler.js` and understand exactly what runs
-- Process restart recovery: the scheduler runs one cycle immediately on startup, clearing any backlogs from server downtime
-- A `isRunning` guard prevents overlapping cycles if processing is slow
+- **Cluster Safe (`pg_try_advisory_lock`)** — Before running, the node process securely acquires a session-level Postgres advisory lock (`ID 1001`). If you scale this app to 10 instances behind a load balancer, they will never clash or natively double-decay waitlists, without needing Redis!
+
+---
+
+### Automated Communications & Analytics
+
+While the challenge mandates zero reliance on external tools, we've extended this principle to the **Communication Layer**. Instead of depending on simple logs or 3rd-party Mailers (like SendGrid), the pipeline implements a native **Simulation Engine**:
+- **Mock Email Gateway (`notificationService`)**: Converts every major pipeline event into a fully formed email template (Promotions, Decay Penalties, Rejections) and routes them into a specialized `notifications` audit table.
+- **Admin System Transparency**: The dashboard consumes these logs and renders an "Automated Communication Trail," cleanly proving that the application is actively managing communication and chasing unresponsive applicants **so the team doesn't have to**.
 
 ---
 
@@ -390,13 +397,10 @@ Tests cover:
 ## What I'd Change With More Time
 
 1. **Real-time updates via WebSockets** — `socket.io` room per job; emit pipeline events on every state change
-2. **Email notifications** — Nodemailer (or Resend) to notify applicants on promotion and pending deadline
-3. **Auth layer** — Company JWT login + applicant token-based link (UUID in URL is sufficient but not authenticated)
-4. **Multi-job dashboard** — Company home screen showing all open positions at a glance
-5. **Horizontal scaling** — Move decay scheduler to a separate worker process; use Redis distributed lock (via `SET NX PX`) to prevent double-processing across instances
-6. **Database migrations framework** — Replace the inline migration script with `node-pg-migrate` or `db-migrate` for versioned, reversible schema changes
-7. **Observability** — Structured JSON logging (Winston + Pino), metrics endpoint for Prometheus scraping
-8. **Retry + exponential backoff** — On the cascade function, if a DB write fails mid-cascade, a retry queue would prevent orphaned promotions
+2. **Auth layer** — Company JWT login + applicant token-based link (UUID in URL is sufficient but not authenticated)
+3. **Multi-job dashboard** — Company home screen showing all open positions at a glance
+4. **Database migrations framework** — Replace the inline migration script with `node-pg-migrate` or `db-migrate` for versioned, reversible schema changes
+5. **Observability** — Structured JSON logging (Winston + Pino), metrics endpoint for Prometheus scraping
 
 ---
 

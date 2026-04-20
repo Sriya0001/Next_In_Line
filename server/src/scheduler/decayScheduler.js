@@ -1,4 +1,4 @@
-const { query } = require('../config/db');
+const { getClient, query } = require('../config/db');
 const { decayApplication } = require('../services/pipelineEngine');
 
 let schedulerInterval = null;
@@ -30,8 +30,19 @@ async function runDecayCycle() {
   }
   isRunning = true;
 
+  let client;
   try {
-    const expired = await query(
+    client = await getClient();
+    
+    // Acquire a session-level advisory lock (ID 1001) to prevent cluster race conditions
+    const lockRes = await client.query(`SELECT pg_try_advisory_lock(1001) as acquired`);
+    if (!lockRes.rows[0].acquired) {
+      console.log('⏭️  Decay scheduler: another cluster instance is currently running the cycle');
+      client.release();
+      return;
+    }
+
+    const expired = await client.query(
       `SELECT a.id, a.job_id, a.applicant_id, a.acknowledge_deadline,
               ap.name, ap.email
        FROM applications a
@@ -69,6 +80,14 @@ async function runDecayCycle() {
   } catch (err) {
     console.error('❌ Decay scheduler error:', err);
   } finally {
+    if (client) {
+      try {
+        await client.query(`SELECT pg_advisory_unlock(1001)`);
+      } catch (unlockErr) {
+        // ignore unlock errors
+      }
+      client.release();
+    }
     isRunning = false;
   }
 }

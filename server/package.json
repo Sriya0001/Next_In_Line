@@ -8,6 +8,7 @@
     "start": "node src/index.js",
     "migrate": "node src/db/migrate.js",
     "seed": "node src/db/seed.js",
+    "simulate:day": "node src/scheduler/simulate-decay.js",
     "test": "jest --runInBand --forceExit",
     "test:watch": "jest --watch"
   },
