@@ -78,7 +78,7 @@ async function getJobEvents(req, res) {
     query(
       `SELECT pe.*, ap.name AS applicant_name, ap.email AS applicant_email
        FROM pipeline_events pe
-       JOIN applicants ap ON ap.id = pe.applicant_id
+       LEFT JOIN applicants ap ON ap.id = pe.applicant_id
        WHERE pe.job_id = $1
        ORDER BY pe.created_at DESC
        LIMIT $2 OFFSET $3`,

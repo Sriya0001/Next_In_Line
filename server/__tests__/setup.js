@@ -50,12 +50,14 @@ beforeAll(async () => {
 }, 30000);
 
 beforeEach(async () => {
-  await pool.query('DELETE FROM pipeline_events');
-  await pool.query('DELETE FROM applications');
-  await pool.query('DELETE FROM applicants');
-  await pool.query('DELETE FROM jobs');
+  // TRUNCATE CASCADE handles FK constraints atomically and is faster than DELETE
+  await pool.query('TRUNCATE notifications, pipeline_events, applications, applicants, jobs CASCADE');
 });
 
 afterAll(async () => {
-  await pool.end();
-});
+  // Give pool a timeout to drain — forceExit handles anything still open
+  await Promise.race([
+    pool.end(),
+    new Promise((resolve) => setTimeout(resolve, 5000)),
+  ]);
+}, 12000);

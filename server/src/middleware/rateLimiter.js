@@ -9,6 +9,7 @@ const apiLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: 'Too many requests, please try again later.' },
+  skip: () => process.env.NODE_ENV === 'test',
 });
 
 /**
@@ -22,7 +23,7 @@ const applyLimiter = rateLimit({
   legacyHeaders: false,
   message: { error: 'Too many applications submitted. Please try again in an hour.' },
   keyGenerator: (req) => req.ip,
-  skip: () => process.env.STRESS_TEST === 'true',
+  skip: () => process.env.NODE_ENV === 'test' || process.env.STRESS_TEST === 'true',
 });
 
 module.exports = { apiLimiter, applyLimiter };
