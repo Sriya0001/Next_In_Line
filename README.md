@@ -5,7 +5,7 @@
 [![Node.js](https://img.shields.io/badge/Node.js-20+-green)](https://nodejs.org)
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-blue)](https://postgresql.org)
 [![React](https://img.shields.io/badge/React-19-61dafb)](https://reactjs.org)
-[![License](https://img.shields.io/badge/License-MIT-purple)](LICENSE)
+
 
 ---
 
