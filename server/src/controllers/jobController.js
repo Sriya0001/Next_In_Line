@@ -1,6 +1,5 @@
-const { query } = require('../config/db');
+const { query, withTransaction } = require('../config/db');
 const { updateCapacity, applyToJob, logEvent } = require('../services/pipelineEngine');
-const { getClient } = require('../config/db');
 
 /**
  * POST /api/jobs

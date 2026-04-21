@@ -64,8 +64,8 @@ Next In Line is a lightweight, self-managing pipeline with one core invariant:
 ### 1. Clone & install
 
 ```bash
-git clone https://github.com/sriya/next-in-line.git
-cd next-in-line
+git clone https://github.com/Sriya0001/Next_In_Line.git
+cd Next_In_Line
 
 # Install root, server, and client dependencies
 npm run install:all
