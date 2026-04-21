@@ -44,6 +44,16 @@ Next In Line is a lightweight, self-managing pipeline with one core invariant:
 
 ---
 
+## App Previews
+
+![Company Dashboard](docs/assets/dashboard.png)
+*The company pipeline view showing active and waitlisted applicants in real-time.*
+
+![Applicant View](docs/assets/applicant.png)
+*The self-service portal where applicants acknowledge promotions and track their status.*
+
+---
+
 ## Quick Start
 
 ### Prerequisites
@@ -194,15 +204,7 @@ If the applicant does not call `POST /applications/:id/acknowledge` before the d
 - Fully transparent — anyone can read `decayScheduler.js` and understand exactly what runs
 - **Cluster Safe (`pg_try_advisory_lock`)** — Before running, the node process securely acquires a session-level Postgres advisory lock (`ID 1001`). If you scale this app to 10 instances behind a load balancer, they will never clash or natively double-decay waitlists, without needing Redis!
 
----
 
-### Automated Communications & Analytics
-
-While the challenge mandates zero reliance on external tools, we've extended this principle to the **Communication Layer**. Instead of depending on simple logs or 3rd-party Mailers (like SendGrid), the pipeline implements a native **Simulation Engine**:
-- **Mock Email Gateway (`notificationService`)**: Converts every major pipeline event into a fully formed email template (Promotions, Decay Penalties, Rejections) and routes them into a specialized `notifications` audit table.
-- **Admin System Transparency**: The dashboard consumes these logs and renders an "Automated Communication Trail," cleanly proving that the application is actively managing communication and chasing unresponsive applicants **so the team doesn't have to**.
-
----
 
 ### Frontend Refresh Strategy
 
@@ -230,16 +232,14 @@ const POLL_INTERVAL = 30000; // 30 seconds — deliberate polling strategy
 
 Every application moves through a well-defined state machine:
 
-```
-          ┌──────────┐
-   apply  │          │  capacity available
-──────────► waitlisted├──────────────────────► active ──► acknowledged
-          │          │                           │
-          └──────────┘   ◄────────────────────── │ (missed deadline)
-               ▲          decay + re-queue        │
-               │                                  ▼
-               │                         rejected / withdrawn
-               │─────────────────────────────────►(exits pipeline)
+```mermaid
+stateDiagram-v2
+    [*] --> waitlisted: apply
+    waitlisted --> active: capacity available
+    active --> acknowledged: acknowledge
+    active --> waitlisted: decay (penalized position)
+    active --> rejected: exit(rejected)
+    active --> withdrawn: exit(withdrawn)
 ```
 
 All transitions are logged to `pipeline_events` — an append-only audit table. Every movement is traceable and reconstructable from this log alone.
@@ -337,7 +337,7 @@ Errors:
 | `id` | UUID PK | |
 | `job_id` | UUID FK | |
 | `applicant_id` | UUID FK | |
-| `status` | `application_status` | `active`, `waitlisted`, `acknowledged`, `rejected`, `withdrawn`, `decayed` |
+| `status` | `application_status` | `active`, `waitlisted`, `acknowledged`, `rejected`, `withdrawn` (Note: `decayed` is a transient event logged to `pipeline_events`, not a final status) |
 | `waitlist_position` | INT | NULL when active/acknowledged |
 | `decay_penalty_count` | INT | Increments each decay |
 | `promoted_at` | TIMESTAMPTZ | When last promoted |
@@ -383,14 +383,14 @@ npm test
 ```
 
 Tests cover:
-- Job creation validation
-- Apply: activation vs waitlisting
-- Concurrency: simultaneous last-slot race
-- Acknowledge: valid + invalid states
-- Exit: cascade promotion after rejection
-- Capacity increase → promotion from waitlist
-- Capacity decrease → demotion to waitlist
-- Audit log completeness
+- Job creation validation (Requirement #1)
+- Apply: activation vs waitlisting (Requirement #2)
+- Concurrency: simultaneous last-slot race (Requirement #5)
+- Acknowledge: valid + invalid states (Requirement #4)
+- Exit: cascade promotion after rejection (Requirement #3)
+- Capacity increase → promotion from waitlist (Requirement #2 & #3)
+- Capacity decrease → demotion to waitlist (Requirement #2)
+- Audit log completeness (Requirement #6)
 
 ---
 
@@ -401,6 +401,7 @@ Tests cover:
 3. **Multi-job dashboard** — Company home screen showing all open positions at a glance
 4. **Database migrations framework** — Replace the inline migration script with `node-pg-migrate` or `db-migrate` for versioned, reversible schema changes
 5. **Observability** — Structured JSON logging (Winston + Pino), metrics endpoint for Prometheus scraping
+6. **Horizontal Scaling** — The system is already built for scale (using PostgreSQL SERIALIZABLE transactions and advisory locks for the decay scheduler); it could be safely deployed behind a load balancer with multiple Node instances natively.
 
 ---
 
