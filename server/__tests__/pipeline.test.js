@@ -263,3 +263,62 @@ describe('GET /api/applications/:id/events', () => {
     expect(res.body.data[0].event_type).toBe('applied');
   });
 });
+
+// ─── Decay Tests ──────────────────────────────────────────────
+
+describe('POST /api/admin/trigger-decay', () => {
+  it('decays an active application past its deadline and promotes the next in line', async () => {
+    const job = await createJob({ active_capacity: 1, decay_window_hours: 24 });
+    const aliceRes = await applyToJob(job.id, 'alice@test.com', 'Alice'); // active
+    const bobRes = await applyToJob(job.id, 'bob@test.com', 'Bob'); // waitlist 1
+    await applyToJob(job.id, 'carol@test.com', 'Carol'); // waitlist 2
+    await applyToJob(job.id, 'dan@test.com', 'Dan'); // waitlist 3
+    await applyToJob(job.id, 'eve@test.com', 'Eve'); // waitlist 4
+
+    const aliceAppId = aliceRes.data.application.id;
+    const bobAppId = bobRes.data.application.id;
+
+    // Fast-forward Alice's deadline
+    await pool.query(
+      "UPDATE applications SET acknowledge_deadline = NOW() - INTERVAL '1 hour' WHERE id = $1",
+      [aliceAppId]
+    );
+
+    // Trigger decay
+    const res = await request(app).post('/api/admin/trigger-decay');
+    expect(res.status).toBe(200);
+
+    // Give it a moment to complete asynchronous DB operations
+    await new Promise(r => setTimeout(r, 200));
+
+    // Verify Bob is now active
+    const bobStatus = await request(app).get(`/api/applications/${bobAppId}`);
+    expect(bobStatus.body.data.status).toBe('active');
+
+    // Verify Alice is decayed
+    const aliceStatus = await request(app).get(`/api/applications/${aliceAppId}`);
+    expect(aliceStatus.body.data.status).toBe('waitlisted');
+    expect(aliceStatus.body.data.decay_penalty_count).toBe(1);
+    expect(aliceStatus.body.data.waitlist_position).toBe(1); // floor(1 * 0.3) + 1 = 1
+  });
+});
+
+describe('PATCH /api/applications/:id/exit error handling', () => {
+  it('prevents exiting an already-exited application', async () => {
+    const job = await createJob({ active_capacity: 1 });
+    const applyRes = await applyToJob(job.id, 'alice@test.com', 'Alice');
+    const appId = applyRes.data.application.id;
+
+    // Reject Alice
+    await request(app)
+      .patch(`/api/applications/${appId}/exit`)
+      .send({ reason: 'rejected' });
+
+    // Try to withdraw already-rejected Alice
+    const exitRes2 = await request(app)
+      .patch(`/api/applications/${appId}/exit`)
+      .send({ reason: 'withdrawn' });
+    expect(exitRes2.status).toBe(409);
+    expect(exitRes2.body.error.message).toContain('already exited');
+  });
+});

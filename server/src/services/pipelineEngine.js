@@ -338,6 +338,10 @@ async function exitPipeline(applicationId, exitType) {
     if (!res.rows.length) throw Object.assign(new Error('Application not found'), { statusCode: 404 });
     const app = res.rows[0];
 
+    if (['rejected', 'withdrawn'].includes(app.status)) {
+      throw Object.assign(new Error(`Application already exited (${app.status})`), { statusCode: 409 });
+    }
+
     const wasActive = ACTIVE_STATUSES.includes(app.status);
 
     await client.query(
