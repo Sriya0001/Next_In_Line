@@ -1,6 +1,6 @@
-# ⚡ Next In Line
+#  Next In Line
 
-> A self-managing hiring pipeline for small engineering teams. No spreadsheets. No manual follow-ups. When someone exits, the next person promotes — automatically.
+> A self-managing hiring pipeline for small engineering teams. No spreadsheets. No manual follow-ups. When someone exits, the next person promotes automatically.
 
 [![Node.js](https://img.shields.io/badge/Node.js-20+-green)](https://nodejs.org)
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-blue)](https://postgresql.org)
@@ -29,7 +29,7 @@
 
 ## Problem
 
-Small engineering teams manage hiring on spreadsheets. They lose track of applicants, fail to follow up, and manually chase people who stopped responding. Platforms like Greenhouse or Lever are overkill and expensive.
+Small engineering teams manage hiring on spreadsheets. They lose track of applicants, fail to follow up and manually chase people who stopped responding. Platforms like Greenhouse or Lever are overkill and expensive.
 
 ## Solution
 
@@ -407,4 +407,4 @@ Tests cover:
 
 ## License
 
-MIT © 2025 Next In Line
+Copyright © 2026 Sriya0001
