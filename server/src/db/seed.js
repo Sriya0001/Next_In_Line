@@ -26,7 +26,7 @@ async function seed() {
     `, [
       'Senior Backend Engineer',
       'Build scalable APIs and own our infrastructure. Must love Postgres.',
-      'Acme Corp',
+      'NexaCore Solutions',
       3,
       24,
     ]);

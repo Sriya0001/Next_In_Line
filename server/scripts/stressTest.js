@@ -24,7 +24,7 @@ async function runStressTest() {
 
     const jobData = {
       title: 'Stress Test Engineer',
-      company_name: 'Antigravity Labs',
+      company_name: 'AeroScale Dynamics',
       active_capacity: 10,
       decay_window_hours: 24,
       description: 'Handling extreme pressure.'
