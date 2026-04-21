@@ -64,7 +64,7 @@ export default function AdminPortal() {
           <div style={{ display: 'flex', gap: 12 }}>
             <button 
               className={`btn btn-secondary ${loading ? 'spinning' : ''}`} 
-              onClick={refresh}
+              onClick={async () => { await refresh(); addToast('Pipelines refreshed', 'success'); }}
               disabled={loading}
             >
               ↻ Refresh

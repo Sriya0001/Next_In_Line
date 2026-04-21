@@ -102,7 +102,7 @@ export default function CareerPortal() {
       <section className="container" id="job-listings">
         <div className="section-header">
           <h2 className="section-title" style={{ visibility: 'hidden' }}>Hidden</h2>
-          <button className="btn btn-secondary btn-sm" onClick={refresh} id="btn-refresh-jobs">
+          <button className="btn btn-secondary btn-sm" onClick={async () => { await refresh(); addToast('Jobs refreshed', 'success'); }} id="btn-refresh-jobs">
             ↻ Refresh
           </button>
         </div>
