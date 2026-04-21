@@ -39,6 +39,7 @@ async function runDecayCycle() {
     if (!lockRes.rows[0].acquired) {
       console.log('⏭️  Decay scheduler: another cluster instance is currently running the cycle');
       client.release();
+      isRunning = false;
       return;
     }
 
