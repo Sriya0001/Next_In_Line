@@ -390,6 +390,9 @@ async function exitPipeline(applicationId, exitType) {
     // If they held an active slot, cascade promotion inside the same transaction
     if (wasActive) {
       await promoteNextInternal(client, app.job_id);
+    } else {
+      // They were waitlisted — close the positional gap they left
+      await normaliseWaitlist(client, app.job_id);
     }
 
     return { ...app, status: exitType };
@@ -567,7 +570,7 @@ async function updateCapacity(jobId, newCapacity) {
           jobId,
           applicantId: ovApp.applicant_id,
           eventType: 'waitlisted',
-          fromStatus: 'acknowledged',
+          fromStatus: ovApp.status, // use actual status (may be 'active' or 'acknowledged')
           toStatus: 'waitlisted',
           toPosition: i + 1,
           metadata: { reason: 'capacity_reduced' },

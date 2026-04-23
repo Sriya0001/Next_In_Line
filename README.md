@@ -351,7 +351,7 @@ Errors:
 | `application_id` | UUID FK | |
 | `job_id` | UUID FK | |
 | `applicant_id` | UUID FK | |
-| `event_type` | `event_type` | `applied`, `activated`, `waitlisted`, `promoted`, `acknowledged`, `rejected`, `withdrawn`, `decayed`, `requeued`, `capacity_changed` |
+| `event_type` | `event_type` | `applied`, `activated`, `waitlisted`, `promoted`, `acknowledged`, `rejected`, `withdrawn`, `decayed`, `requeued`, `capacity_changed`, `job_status_changed` |
 | `from_status` | TEXT | |
 | `to_status` | TEXT | |
 | `from_position` | INT | |

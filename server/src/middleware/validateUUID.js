@@ -12,8 +12,7 @@ const validateUUID = (paramNames) => {
       const value = req.params[name];
       if (value && !uuidRegex.test(value)) {
         return res.status(400).json({
-          error: 'Bad Request',
-          message: `Malformed ID: '${value}' is not a valid UUID.`
+          error: { message: `Malformed ID: '${value}' is not a valid UUID.` }
         });
       }
     }
