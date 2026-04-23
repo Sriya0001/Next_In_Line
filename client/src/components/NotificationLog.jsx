@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { adminApi } from '../api';
 
 const ICONS = {
@@ -15,7 +15,7 @@ export default function NotificationLog({ jobId = null }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
-  const fetchNotifications = async () => {
+  const fetchNotifications = useCallback(async () => {
     try {
       setLoading(true);
       const res = await adminApi.getNotifications(jobId ? { job_id: jobId } : {});
@@ -26,13 +26,13 @@ export default function NotificationLog({ jobId = null }) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [jobId]);
 
   useEffect(() => {
     fetchNotifications();
     const interval = setInterval(fetchNotifications, 15000); // refresh every 15s
     return () => clearInterval(interval);
-  }, [jobId]);
+  }, [fetchNotifications]);
 
   if (loading && notifications.length === 0) {
     return (

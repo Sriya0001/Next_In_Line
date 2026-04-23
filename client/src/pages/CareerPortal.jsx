@@ -122,9 +122,7 @@ export default function CareerPortal() {
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           {(jobs || []).map(job => {
-            const used = parseInt(job.active_count, 10);
-            const pct = Math.min(100, (used / job.active_capacity) * 100);
-            const isFull = used >= job.active_capacity;
+            // Removed unused capacity calculations for display
 
             return (
               <div key={job.id} className="card" id={`job-card-${job.id}`}>

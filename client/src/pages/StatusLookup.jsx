@@ -9,7 +9,7 @@ export default function StatusLookup() {
   const [email, setEmail] = useState('');
   const [appId, setAppId] = useState('');
   const [results, setResults] = useState(null);
-  const { loading, error, execute, clearError } = useAsyncAction();
+  const { loading, error, execute } = useAsyncAction();
 
   async function handleIdLookup(e) {
     e.preventDefault();

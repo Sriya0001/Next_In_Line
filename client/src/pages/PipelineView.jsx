@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { pipelineApi, applicationsApi, jobsApi, adminApi } from '../api';
+import { pipelineApi, applicationsApi, jobsApi } from '../api';
 import { usePolling, useAsyncAction } from '../hooks/usePolling';
 import { useToast } from '../components/Toast';
 import StatusBadge from '../components/StatusBadge';
@@ -122,12 +122,7 @@ export default function PipelineView() {
     );
   }
 
-  async function handleTriggerDecay() {
-    await execute(
-      () => adminApi.triggerDecay(),
-      () => { addToast('Decay cycle triggered.', 'info'); setTimeout(() => { refresh(); refreshEvents(); }, 800); }
-    );
-  }
+  // Removed unused handleTriggerDecay
 
   if (loading && !pipeline) {
     return (
