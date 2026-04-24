@@ -1,7 +1,7 @@
 /**
  * Test setup: runs migrations before all tests, cleans DB between tests.
  */
-require('dotenv').config({ path: require('path').resolve(__dirname, '../../..', '.env') });
+require('dotenv').config({ path: require('path').resolve(__dirname, '../../', '.env') });
 
 const { pool } = require('../src/config/db');
 
